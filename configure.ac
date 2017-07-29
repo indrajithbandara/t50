@@ -44,7 +44,7 @@ AC_C_INLINE
 AC_C_RESTRICT
 AX_C___ATTRIBUTE__
 
-AX_CHECK_COMPILE_FLAG([-std=gnu11],[AM_CFLAGS+="-std=gnu11"],[
+AX_CHECK_COMPILE_FLAG([-std=gnu11],[AM_CFLAGS+=" -std=gnu11"],[
 	echo "GNU C11 standard not supported? Aborting..."
 	exit 1
 ])
