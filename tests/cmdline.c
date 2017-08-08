@@ -1,6 +1,9 @@
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#define NUL 0
 
 //----- configuration structure -----
 struct config_s {
@@ -24,6 +27,7 @@ enum {
   OPT_VERSION,
   OPT_LSTPROTO,
   OPT_BGUSCSUM,
+  OPT_FLOOD,
   OPT_THRESHLD
 };
 
@@ -34,14 +38,13 @@ struct option_s options[] = {
   { OPT_VERSION,  'v',  "version",        0,    1        },  
   { OPT_LSTPROTO, 'l',  "list-protocols", 0,    1        },
   { OPT_BGUSCSUM, 'B',  "bocus-csum",     0              },
+  { OPT_FLOOD,    NUL,  "flood",          0              },
   { OPT_THRESHLD, 't',  "threshold",      1              },
   { -1 }  // null option.
 };
 
 //----- configuration table -----
 struct config_s config = { .threshld = 1000 };
-
-int is_option(char *s) { return *s == '-'; }
 
 //--- tries to find an option on table -----
 struct option_s *find_short_option(char opt)
@@ -95,7 +98,7 @@ int parse_cmdline(char **argv)
   {
     if (!arg) // if not an arg, an option!
     {
-      if (is_option(*argv))
+      if (**argv == '-')
       {
         char *opt = *argv + 1;
 
@@ -193,8 +196,71 @@ int config_arg_option(int opt, char *arg, char *errstr, struct config_s *cfg)
   return 1;
 }
 
+int validate_options(void)
+{
+  struct option_s *optptr;
+  _Bool flooding, thresholding;
+
+  flooding = thresholding = 0;
+  for (optptr = options; optptr->id != -1; optptr++)
+  {
+    if (optptr->short_option == 't' && optptr->used) thresholding = 1;
+    if (!strcmp(optptr->long_option, "flood") && optptr->used) flooding = 1;
+
+    // Flooding and thresholding is not allowed!
+    if (thresholding && flooding)
+    {
+      fputs("Cannot use threshold while trying to flood.\n", stderr);
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+void list_protocols(void) {}
+void doWork(void) {}
+
 int main(int argc, char *argv[])
 {
-  parse_cmdline(++argv);
-  return EXIT_SUCCESS;
+  struct option_s *optptr;
+
+  if (parse_cmdline(++argv))
+    if (validate_options())
+    {
+      optptr = find_short_option('v');
+      if (optptr->used)
+      {
+        puts("T50 5.7.1");
+        return EXIT_SUCCESS;
+      }
+
+      // Show Help!
+      optptr = find_short_option('h');
+      if (optptr->used)
+      {
+        puts("Help!");
+        return EXIT_SUCCESS;
+      }
+
+      // Show list of protocols...
+      optptr = find_short_option('l');
+      if (optptr->used)
+      {
+        list_protocols();
+        return EXIT_SUCCESS;
+      }
+
+      // Only root can use T50.
+      if (getuid())
+      {
+        fputs("You must have root privileges to use T50.\n", stderr);
+        return EXIT_FAILURE;
+      }
+
+      doWork();
+      return EXIT_SUCCESS;
+    }
+
+  return EXIT_FAILURE;
 }
