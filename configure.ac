@@ -16,7 +16,7 @@ AC_CONFIG_AUX_DIR([build])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([src/include/configuration.h])
 
-AC_CANONINCAL_TARGET
+AC_CANONICAL_TARGET
 if test "x${target_os}" != "xlinux-gnu"; then
   echo "Cannot compile for this target: ${target_os}. T50 will work only on linux."
   exit 1
