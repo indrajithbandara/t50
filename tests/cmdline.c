@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 
 #define NUL 0
@@ -8,22 +9,24 @@
 //----- configuration structure -----
 struct config_s {
   long threshld;
-  _Bool boguscsum;
+  bool boguscsum;
 };
 
 //----- options structure -------
 struct option_s {
-  int  id;
-  char short_option;
-  char *long_option;
-  _Bool has_arg;
-  _Bool alone;
-  _Bool used;
+  int  id;            // Maybe this can be deleted and the array index
+                      // used, instead.
+  char short_option;  // short option character
+  char *long_option;  // long option string.
+
+  bool has_arg;      // has args?
+  bool alone;        // this option must appear alone?
+  bool used;         // already in use?
 };
 
 //------ options enumeration ------
 enum {
-  OPT_HELP,
+  OPT_HELP=1,
   OPT_VERSION,
   OPT_LSTPROTO,
   OPT_BGUSCSUM,
@@ -40,59 +43,24 @@ struct option_s options[] = {
   { OPT_BGUSCSUM, 'B',  "bocus-csum",     0              },
   { OPT_FLOOD,    NUL,  "flood",          0              },
   { OPT_THRESHLD, 't',  "threshold",      1              },
-  { -1 }  // null option.
+  {  }  // null option.
 };
 
 //----- configuration table -----
 struct config_s config = { .threshld = 1000 };
 
-//--- tries to find an option on table -----
-struct option_s *find_short_option(char opt)
-{
-  struct option_s *p;
-
-  p = options;
-  while (p->id != -1)
-  {
-    if (p->short_option == opt)
-      break;
-    p++;
-  }
-
-  if (p->id == -1)
-    return NULL;
-
-  return p;
-}
-
-struct option_s *find_long_option(char *opt)
-{
-  struct option_s *p;
-
-  p = options;
-  while (p->id != -1)
-  {
-    if (!strcmp(p->long_option, opt))
-      break;
-    p++;
-  }
-
-  if (p->id == -1)
-    return NULL;
-
-  return p;
-}
-
 #define CFG_ERRBUF_SIZE 64
 
-void config_no_args_option(int, struct config_s *);
-int config_arg_option(int, char *, char *, struct config_s *);
+static struct option_s *find_short_option(char);
+static struct option_s *find_long_option(char *);
+static void config_no_args_option(int, struct config_s *);
+static int config_arg_option(int, char *, char *, struct config_s *);
 
 int parse_cmdline(char **argv)
 {
   struct option_s *optptr;
   int count = 0;
-  _Bool arg = 0;
+  bool arg = false;
 
   for (; *argv; argv++)
   {
@@ -122,12 +90,12 @@ int parse_cmdline(char **argv)
         }
 
         if (optptr->has_arg)
-          arg = 1;
+          arg = true;
 
         if (!arg)   // Process option with no args.
           config_no_args_option(optptr->id, &config);
 
-        optptr->used = 1;
+        optptr->used = true;
       }
       else
       {
@@ -147,7 +115,7 @@ int parse_cmdline(char **argv)
         return 0;
       }
 
-      arg = 0;  // Arg processed, next one must be an option.
+      arg = false;  // Arg processed, next one must be an option.
     }
   }
 
@@ -162,6 +130,42 @@ int parse_cmdline(char **argv)
     }
 
   return r;
+}
+
+//--- tries to find an option on table -----
+struct option_s *find_short_option(char opt)
+{
+  struct option_s *p = options;
+
+  while (p->id)
+  {
+    if (p->short_option == opt)
+      break;
+    p++;
+  }
+
+  if (!p->id)
+    return NULL;
+
+  // Return the struct option_s entry pointer if found.
+  return p;
+}
+
+struct option_s *find_long_option(char *opt)
+{
+  struct option_s *p = options;
+
+  while (p->id)
+  {
+    if (!strcmp(p->long_option, opt))
+      break;
+    p++;
+  }
+
+  if (!p->id)
+    return NULL;
+
+  return p;
 }
 
 void config_no_args_option(int opt, struct config_s *cfg)
@@ -199,9 +203,9 @@ int config_arg_option(int opt, char *arg, char *errstr, struct config_s *cfg)
 int validate_options(void)
 {
   struct option_s *optptr;
-  _Bool flooding, thresholding;
+  bool flooding, thresholding;
 
-  flooding = thresholding = 0;
+  flooding = thresholding = false;
   for (optptr = options; optptr->id != -1; optptr++)
   {
     if (optptr->short_option == 't' && optptr->used) thresholding = 1;
