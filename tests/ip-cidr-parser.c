@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include "cycle_counting.h"
+
 // Validate a single string representing an octect.
 // Is valid, returns true and updates *octect, otherwise,
 // returns false and *octect is undefined.
@@ -258,6 +260,7 @@ void main(void)
     NULL
   };
   char **arg;
+  unsigned long c;
 
   int cidr, i = 1;
   uint32_t addr;
@@ -265,8 +268,11 @@ void main(void)
   for (arg = tests; *arg; arg++)
   {
     printf("#%-2d: \"%s\" -> ", i++, *arg);
-    if (!get_ip_and_cidr(*arg, true, &addr, &cidr))
+    BEGIN_TSC;
+    // Forcibly don't use resolver for this test!
+    if (!get_ip_and_cidr(*arg, false, &addr, &cidr))
       fputs("\x1b[31;1m[ERRO]\x1b[0m ", stdout);
-    printf("IP (hex, little-endian) = 0x%08x, CIDR = %d\n", addr, cidr);
+    END_TSC(c);
+    printf("IP (hex, little-endian) = 0x%08x, CIDR = %d [%ld cycles]\n", addr, cidr, c);
   }
 } 
